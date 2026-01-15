@@ -88,6 +88,12 @@ It is inspired by [conventional changelog][2] and the [configuration file](#conf
 convco changelog > CHANGELOG.md
 ```
 
+To ignore commits that only touch certain paths, use `--ignore-path` (repeatable):
+
+```sh
+convco changelog --ignore-path docs --ignore-path .github > CHANGELOG.md
+```
+
 ### Check
 
 Check a range of revisions for compliance.
