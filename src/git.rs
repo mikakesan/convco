@@ -124,6 +124,66 @@ impl GitHelper {
             .unwrap_or(false)
     }
 
+    /// Returns true if a commit should be considered relevant based on include/ignore path filters.
+    ///
+    /// - If `include_paths` is empty, any touched path matches the include condition.
+    /// - If `ignore_paths` is non-empty, commits that touch files *only* under those paths are ignored.
+    pub(crate) fn commit_updates_relevant_paths(
+        &self,
+        commit: &Commit,
+        include_paths: &[PathBuf],
+        ignore_paths: &[PathBuf],
+    ) -> bool {
+        if include_paths.is_empty() && ignore_paths.is_empty() {
+            return true;
+        }
+
+        let tree = commit.tree().ok();
+        let parent_tree = commit.parent(0).and_then(|item| item.tree()).ok();
+        let diff = match self
+            .repo
+            .diff_tree_to_tree(parent_tree.as_ref(), tree.as_ref(), None)
+        {
+            Ok(diff) => diff,
+            Err(_) => return false,
+        };
+
+        let mut touched_any = false;
+        let mut updates_included = include_paths.is_empty();
+        let mut updates_non_ignored = ignore_paths.is_empty();
+
+        diff.foreach(
+            &mut |delta, _progress| {
+                let mut consider_path = |p: &std::path::Path| {
+                    touched_any = true;
+                    if !updates_included {
+                        updates_included |= include_paths.iter().any(|path| p.starts_with(path));
+                    }
+                    if !updates_non_ignored {
+                        updates_non_ignored |= !ignore_paths.iter().any(|path| p.starts_with(path));
+                    }
+                };
+
+                if let Some(p) = delta.new_file().path() {
+                    consider_path(p);
+                }
+                if let Some(p) = delta.old_file().path() {
+                    consider_path(p);
+                }
+
+                // Stop early if both conditions are already satisfied.
+                !(updates_included && (updates_non_ignored || !touched_any))
+            },
+            None,
+            None,
+            None,
+        )
+        .ok();
+
+        (include_paths.is_empty() || updates_included)
+            && (ignore_paths.is_empty() || !touched_any || updates_non_ignored)
+    }
+
     pub(crate) fn find_matching_prerelease(
         &self,
         last_version: &SemVer,
