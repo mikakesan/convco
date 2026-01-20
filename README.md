@@ -133,6 +133,10 @@ When `--bump` is provided, the next version will be printed out.
 Conventional commits are used to calculate the next major, minor or patch.
 If needed one can provide `--major`, `--minor` or `--patch` to overrule the convention.
 
+By default, when the current version is 0.y.z, `convco version --bump` uses pre-1.0 bump rules
+(e.g. `feat` -> PATCH, BREAKING CHANGE -> MINOR). To make 0.y.z behave the same as >=1.0.0,
+use `--treat-major-zero-as-stable` or set `treatMajorZeroAsStable: true` in your config.
+
 ```sh
 convco version --bump
 ```

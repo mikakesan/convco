@@ -83,6 +83,16 @@ pub struct VersionCommand {
     /// If no version is found use this version for the first bump
     #[clap(long, env = "CONVCO_INITIAL_BUMP_VERSION")]
     pub initial_bump_version: Option<Version>,
+
+    /// When calculating `--bump` from conventional commits, treat 0.y.z versions the same as >=1.0.0.
+    ///
+    /// By default, for 0.y.z versions, `feat` is treated as PATCH and BREAKING CHANGE is treated as MINOR.
+    #[clap(
+        long,
+        requires = "bump",
+        env = "CONVCO_TREAT_MAJOR_ZERO_AS_STABLE"
+    )]
+    pub treat_major_zero_as_stable: bool,
 }
 
 #[derive(Debug, Parser)]

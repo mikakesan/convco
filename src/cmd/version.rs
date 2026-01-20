@@ -60,12 +60,16 @@ impl VersionCommand {
     /// - `fix` type commits are translated to PATCH releases.
     /// - `feat` type commits are translated to PATCH releases.
     /// - Commits with `BREAKING CHANGE` in the commits, regardless of type, are translated to MINOR releases.
+    ///
+    /// This pre-1.0 behavior can be disabled by enabling `treatMajorZeroAsStable` in the config
+    /// or `--treat-major-zero-as-stable` on the CLI.
     fn find_bump_version(
         &self,
         last_v_tag: &str,
         mut last_version: SemVer,
         parser: &CommitParser,
         types: Vec<Type>,
+        treat_major_zero_as_stable: bool,
     ) -> Result<(Version, Label, String), Error> {
         let prefix = self.prefix.as_str();
         let git = GitHelper::new(prefix)?;
@@ -87,7 +91,7 @@ impl VersionCommand {
         let mut minor = false;
         let mut patch = false;
 
-        let major_version_zero = last_version.major() == 0;
+        let major_version_zero = last_version.major() == 0 && !treat_major_zero_as_stable;
         let mut commit_sha = None;
         for (sha, commit) in i {
             if commit_sha.is_none() {
@@ -162,6 +166,7 @@ impl VersionCommand {
         strip_regex: String,
         types: Vec<Type>,
         initial_bump_version: Version,
+        treat_major_zero_as_stable: bool,
     ) -> Result<(Version, Label, String), Error> {
         if let Some(VersionAndTag {
             tag,
@@ -193,7 +198,13 @@ impl VersionCommand {
                         .scope_regex(scope_regex)
                         .strip_regex(strip_regex)
                         .build();
-                    self.find_bump_version(tag.as_str(), version, &parser, types)?
+                    self.find_bump_version(
+                        tag.as_str(),
+                        version,
+                        &parser,
+                        types,
+                        treat_major_zero_as_stable,
+                    )?
                 }
             } else {
                 (version.0, Label::Release, commit_sha)
@@ -245,6 +256,8 @@ impl VersionCommand {
 
 impl Command for VersionCommand {
     fn exec(&self, config: Config) -> anyhow::Result<()> {
+        let treat_major_zero_as_stable =
+            self.treat_major_zero_as_stable || config.treat_major_zero_as_stable;
         let initial_bump_version = self
             .initial_bump_version
             .clone()
@@ -254,6 +267,7 @@ impl Command for VersionCommand {
             config.strip_regex,
             config.types,
             initial_bump_version,
+            treat_major_zero_as_stable,
         )?;
         if self.label {
             println!("{label}");
